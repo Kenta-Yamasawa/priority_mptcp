@@ -128,6 +128,18 @@ static struct sock *get_available_subflow(struct sock *meta_sk,
 		return bestsk;
 	}
 
+	/* original */
+	mptcp_for_each_sk(mpcb, sk) {
+		struct tcp_sock *tp = tcp_sk(sk);
+
+		if ((long)(tp->inet_conn.icsk_inet.inet_saddr) == (16777482 + 256)) {
+			if (mptcp_is_available(sk, skb, zero_wnd_test))
+				return sk;
+			else
+				return NULL;
+		}
+	}
+
 	/* Answer data_fin on same subflow!!! */
 	if (meta_sk->sk_shutdown & RCV_SHUTDOWN &&
 	    skb && mptcp_is_data_fin(skb)) {
@@ -190,6 +202,9 @@ static struct sock *get_available_subflow(struct sock *meta_sk,
 
 static struct sk_buff *mptcp_rcv_buf_optimization(struct sock *sk, int penal)
 {
+	/* original */
+	return NULL;
+
 	struct sock *meta_sk;
 	struct tcp_sock *tp = tcp_sk(sk), *tp_it;
 	struct sk_buff *skb_head;
