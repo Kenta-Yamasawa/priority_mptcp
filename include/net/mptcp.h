@@ -338,6 +338,12 @@ struct mptcp_cb {
 
 	/* Timer for retransmitting SYN/ACK+MP_JOIN */
 	struct timer_list synack_timer;
+
+	/* original-top
+	 * Amount of data in bytes acked during 20ms on the priority-subflow
+         */
+	long ackedByte_20ms;
+	/* original-bottom */
 };
 
 #define MPTCP_SUB_CAPABLE			0

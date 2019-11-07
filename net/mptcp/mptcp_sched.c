@@ -128,7 +128,20 @@ static struct sock *get_available_subflow(struct sock *meta_sk,
 		return bestsk;
 	}
 
-	/* original */
+	/* Answer data_fin on same subflow!!! */
+	if (meta_sk->sk_shutdown & RCV_SHUTDOWN &&
+	    skb && mptcp_is_data_fin(skb)) {
+		mptcp_for_each_sk(mpcb, sk) {
+			if (tcp_sk(sk)->mptcp->path_index == mpcb->dfin_path_index &&
+			    mptcp_is_available(sk, skb, zero_wnd_test))
+				return sk;
+		}
+	}
+
+	/* original-top */
+	if (mpcb->ackedByte_20ms > 0)
+		goto no_priority;
+
 	mptcp_for_each_sk(mpcb, sk) {
 		struct tcp_sock *tp = tcp_sk(sk);
 
@@ -140,15 +153,8 @@ static struct sock *get_available_subflow(struct sock *meta_sk,
 		}
 	}
 
-	/* Answer data_fin on same subflow!!! */
-	if (meta_sk->sk_shutdown & RCV_SHUTDOWN &&
-	    skb && mptcp_is_data_fin(skb)) {
-		mptcp_for_each_sk(mpcb, sk) {
-			if (tcp_sk(sk)->mptcp->path_index == mpcb->dfin_path_index &&
-			    mptcp_is_available(sk, skb, zero_wnd_test))
-				return sk;
-		}
-	}
+no_priority:
+	/* original-bottom */
 
 	/* First, find the best subflow */
 	mptcp_for_each_sk(mpcb, sk) {
@@ -202,8 +208,9 @@ static struct sock *get_available_subflow(struct sock *meta_sk,
 
 static struct sk_buff *mptcp_rcv_buf_optimization(struct sock *sk, int penal)
 {
-	/* original */
+	/* original-top */
 	return NULL;
+	/* original-bottom */
 
 	struct sock *meta_sk;
 	struct tcp_sock *tp = tcp_sk(sk), *tp_it;
