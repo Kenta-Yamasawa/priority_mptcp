@@ -1212,7 +1212,7 @@ static int mptcp_alloc_mpcb(struct sock *meta_sk, __u64 remote_key, u32 window)
 	meta_icsk->icsk_probes_out = 0;
 
 	/* original-top */
-	mpcb->ackedByte_20ms = 100;
+	mpcb->ackedByte_20ms = 0;
 	/* original-bottom */
 
 	/* Set mptcp-pointers */
