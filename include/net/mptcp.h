@@ -416,6 +416,9 @@ struct mptcp_cb {
 #define MPTCP_SUB_LEN_FCLOSE	12
 #define MPTCP_SUB_LEN_FCLOSE_ALIGN	12
 
+#define MPTCP_SUB_PMPACK	8
+#define MPTCP_SUB_LEN_PMPACK	4
+#define MPTCP_SUB_LEN_PMPACK_ALIGN	4
 
 #define OPTION_MPTCP		(1 << 5)
 
@@ -461,6 +464,7 @@ extern bool mptcp_init_failed;
 #define OPTION_MP_FCLOSE	(1 << 8)
 #define OPTION_REMOVE_ADDR	(1 << 9)
 #define OPTION_MP_PRIO		(1 << 10)
+#define OPTION_PMP_ACK		(1 << 11)
 
 /* MPTCP flags: both TX and RX */
 #define MPTCPHDR_SEQ		0x01 /* DSS.M option is present */
@@ -661,6 +665,21 @@ struct mp_prio {
 	__u8	addr_id;
 } __attribute__((__packed__));
 
+struct pmp_ack {
+	__u8	kind;
+	__u8	len;
+#if defined(__LITTLE_ENDIAN_BITFIELD)
+	__u8	rsv:4,
+		sub:4;
+#elif defined(__BIG_ENDIAN_BITFIELD)
+	__u8	sub:4,
+		rsv:4;
+#else
+#error	"Adjust your <asm/byteorder.h> defines"
+#endif
+	__u8	recved_byte;
+} __attribute__((__packed__));
+
 static inline int mptcp_sub_len_dss(struct mp_dss *m, int csum)
 {
 	return 4 + m->A * (4 + m->a * 4) + m->M * (10 + m->m * 4 + csum * 2);
@@ -767,7 +786,7 @@ void mptcp_synack_options(struct request_sock *req,
 			  struct tcp_out_options *opts,
 			  unsigned *remaining);
 void mptcp_established_options(struct sock *sk, struct sk_buff *skb,
-			       struct tcp_out_options *opts, unsigned *size);
+			       struct tcp_out_options *opts, unsigned *size, int yamasawa_flag);
 void mptcp_options_write(__be32 *ptr, struct tcp_sock *tp,
 			 struct tcp_out_options *opts,
 			 struct sk_buff *skb);
@@ -1421,7 +1440,7 @@ static inline void mptcp_synack_options(struct request_sock *req,
 static inline void mptcp_established_options(struct sock *sk,
 					     struct sk_buff *skb,
 					     struct tcp_out_options *opts,
-					     unsigned *size) {}
+					     unsigned *size, int yamasawa_flag) {}
 static inline void mptcp_options_write(__be32 *ptr, struct tcp_sock *tp,
 				       struct tcp_out_options *opts,
 				       struct sk_buff *skb) {}

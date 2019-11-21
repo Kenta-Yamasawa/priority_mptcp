@@ -641,7 +641,7 @@ static unsigned int tcp_synack_options(struct sock *sk,
  */
 static unsigned int tcp_established_options(struct sock *sk, struct sk_buff *skb,
 					struct tcp_out_options *opts,
-					struct tcp_md5sig_key **md5)
+					struct tcp_md5sig_key **md5, int yamasawa_flag)
 {
 	struct tcp_skb_cb *tcb = skb ? TCP_SKB_CB(skb) : NULL;
 	struct tcp_sock *tp = tcp_sk(sk);
@@ -667,7 +667,7 @@ static unsigned int tcp_established_options(struct sock *sk, struct sk_buff *skb
 		size += TCPOLEN_TSTAMP_ALIGNED;
 	}
 	if (mptcp(tp))
-		mptcp_established_options(sk, skb, opts, &size);
+		mptcp_established_options(sk, skb, opts, &size, yamasawa_flag);
 
 	eff_sacks = tp->rx_opt.num_sacks + tp->rx_opt.dsack;
 	if (unlikely(eff_sacks)) {
@@ -885,7 +885,7 @@ void tcp_wfree(struct sk_buff *skb)
  * SKB, or a fresh unique copy made by the retransmit engine.
  */
 int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
-		        gfp_t gfp_mask)
+		        gfp_t gfp_mask, int yamasawa_flag)
 {
 	const struct inet_connection_sock *icsk = inet_csk(sk);
 	struct inet_sock *inet;
@@ -930,7 +930,7 @@ int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
 		tcp_options_size = tcp_syn_options(sk, skb, &opts, &md5);
 	else
 		tcp_options_size = tcp_established_options(sk, skb, &opts,
-							   &md5);
+							   &md5, yamasawa_flag);
 	tcp_header_size = tcp_options_size + sizeof(struct tcphdr);
 
 	if (tcp_packets_in_flight(tp) == 0)
@@ -1410,7 +1410,7 @@ unsigned int tcp_current_mss(struct sock *sk)
 			mss_now = tcp_sync_mss(sk, mtu);
 	}
 
-	header_len = tcp_established_options(sk, NULL, &opts, &md5) +
+	header_len = tcp_established_options(sk, NULL, &opts, &md5, 0) +
 		     sizeof(struct tcphdr);
 	/* The mss_cache is sized based on tp->tcp_header_len, which assumes
 	 * some common options. If this is an odd packet (because we have SACK
@@ -1869,7 +1869,7 @@ static int tcp_mtu_probe(struct sock *sk)
 	/* We're ready to send.  If this fails, the probe will
 	 * be resegmented into mss-sized pieces by tcp_write_xmit(). */
 	TCP_SKB_CB(nskb)->when = tcp_time_stamp;
-	if (!tcp_transmit_skb(sk, nskb, 1, GFP_ATOMIC)) {
+	if (!tcp_transmit_skb(sk, nskb, 1, GFP_ATOMIC, 0)) {
 		/* Decrement cwnd here because we are sending
 		 * effectively two packets. */
 		tp->snd_cwnd--;
@@ -1998,7 +1998,7 @@ bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
 
 		TCP_SKB_CB(skb)->when = tcp_time_stamp;
 
-		if (unlikely(tcp_transmit_skb(sk, skb, 1, gfp)))
+		if (unlikely(tcp_transmit_skb(sk, skb, 1, gfp, 0)))
 			break;
 
 repair:
@@ -2473,10 +2473,10 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
 		     skb_headroom(skb) >= 0xFFFF)) {
 		struct sk_buff *nskb = __pskb_copy(skb, MAX_TCP_HEADER,
 						   GFP_ATOMIC);
-		err = nskb ? tcp_transmit_skb(sk, nskb, 0, GFP_ATOMIC) :
+		err = nskb ? tcp_transmit_skb(sk, nskb, 0, GFP_ATOMIC, 0) :
 			     -ENOBUFS;
 	} else {
-		err = tcp_transmit_skb(sk, skb, 1, GFP_ATOMIC);
+		err = tcp_transmit_skb(sk, skb, 1, GFP_ATOMIC, 0);
 	}
 
 	if (likely(!err))
@@ -2717,7 +2717,7 @@ void tcp_send_active_reset(struct sock *sk, gfp_t priority)
 			     TCPHDR_ACK | TCPHDR_RST);
 	/* Send it off. */
 	TCP_SKB_CB(skb)->when = tcp_time_stamp;
-	if (tcp_transmit_skb(sk, skb, 0, priority))
+	if (tcp_transmit_skb(sk, skb, 0, priority, 0))
 		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPABORTFAILED);
 
 	TCP_INC_STATS(sock_net(sk), TCP_MIB_OUTRSTS);
@@ -2756,7 +2756,7 @@ int tcp_send_synack(struct sock *sk)
 		TCP_ECN_send_synack(tcp_sk(sk), skb);
 	}
 	TCP_SKB_CB(skb)->when = tcp_time_stamp;
-	return tcp_transmit_skb(sk, skb, 1, GFP_ATOMIC);
+	return tcp_transmit_skb(sk, skb, 1, GFP_ATOMIC, 0);
 }
 
 /**
@@ -3032,7 +3032,7 @@ static int tcp_send_syn_data(struct sock *sk, struct sk_buff *syn)
 	tcp_connect_queue_skb(sk, data);
 	fo->copied = data->len;
 
-	if (tcp_transmit_skb(sk, syn_data, 0, sk->sk_allocation) == 0) {
+	if (tcp_transmit_skb(sk, syn_data, 0, sk->sk_allocation, 0) == 0) {
 		tp->syn_data = (fo->copied > 0);
 		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPORIGDATASENT);
 		goto done;
@@ -3043,7 +3043,7 @@ fallback:
 	/* Send a regular SYN with Fast Open cookie request option */
 	if (fo->cookie.len > 0)
 		fo->cookie.len = 0;
-	err = tcp_transmit_skb(sk, syn, 1, sk->sk_allocation);
+	err = tcp_transmit_skb(sk, syn, 1, sk->sk_allocation, 0);
 	if (err)
 		tp->syn_fastopen = 0;
 	kfree_skb(syn_data);
@@ -3080,7 +3080,7 @@ int tcp_connect(struct sock *sk)
 
 	/* Send off SYN; include data in Fast Open. */
 	err = tp->fastopen_req ? tcp_send_syn_data(sk, buff) :
-	      tcp_transmit_skb(sk, buff, 1, sk->sk_allocation);
+	      tcp_transmit_skb(sk, buff, 1, sk->sk_allocation, 0);
 	if (err == -ECONNREFUSED)
 		return err;
 
@@ -3158,6 +3158,9 @@ void tcp_send_delayed_ack(struct sock *sk)
 void tcp_send_ack(struct sock *sk)
 {
 	struct sk_buff *buff;
+	struct tcp_out_options opts;
+	struct tcphdr *th;
+	int tcp_header_size;
 
 	/* If we have been reset, we may not send again. */
 	if (sk->sk_state == TCP_CLOSE)
@@ -3167,7 +3170,11 @@ void tcp_send_ack(struct sock *sk)
 	 * tcp_transmit_skb() will set the ownership to this
 	 * sock.
 	 */
+#ifdef CONFIG_MPTCP
+	buff = alloc_skb(MAX_TCP_HEADER + 4, sk_gfp_atomic(sk, GFP_ATOMIC));
+#else
 	buff = alloc_skb(MAX_TCP_HEADER, sk_gfp_atomic(sk, GFP_ATOMIC));
+#endif /* CONFIG_MPTCP */
 	if (buff == NULL) {
 		inet_csk_schedule_ack(sk);
 		inet_csk(sk)->icsk_ack.ato = TCP_ATO_MIN;
@@ -3182,7 +3189,7 @@ void tcp_send_ack(struct sock *sk)
 
 	/* Send it off, this clears delayed acks for us. */
 	TCP_SKB_CB(buff)->when = tcp_time_stamp;
-	tcp_transmit_skb(sk, buff, 0, sk_gfp_atomic(sk, GFP_ATOMIC));
+	tcp_transmit_skb(sk, buff, 0, sk_gfp_atomic(sk, GFP_ATOMIC), 1);
 }
 EXPORT_SYMBOL(tcp_send_ack);
 
@@ -3215,7 +3222,7 @@ int tcp_xmit_probe_skb(struct sock *sk, int urgent)
 	 */
 	tcp_init_nondata_skb(skb, tp->snd_una - !urgent, TCPHDR_ACK);
 	TCP_SKB_CB(skb)->when = tcp_time_stamp;
-	return tcp_transmit_skb(sk, skb, 0, GFP_ATOMIC);
+	return tcp_transmit_skb(sk, skb, 0, GFP_ATOMIC, 0);
 }
 
 void tcp_send_window_probe(struct sock *sk)
@@ -3259,7 +3266,7 @@ int tcp_write_wakeup(struct sock *sk)
 
 		TCP_SKB_CB(skb)->tcp_flags |= TCPHDR_PSH;
 		TCP_SKB_CB(skb)->when = tcp_time_stamp;
-		err = tcp_transmit_skb(sk, skb, 1, GFP_ATOMIC);
+		err = tcp_transmit_skb(sk, skb, 1, GFP_ATOMIC, 0);
 		if (!err)
 			tcp_event_new_data_sent(sk, skb);
 		return err;

@@ -492,7 +492,7 @@ static bool mptcp_skb_entail(struct sock *sk, struct sk_buff *skb, int reinject)
 		tcp_init_tso_segs(sk, subskb, 1);
 		/* Empty data-fins are sent immediatly on the subflow */
 		TCP_SKB_CB(subskb)->when = tcp_time_stamp;
-		err = tcp_transmit_skb(sk, subskb, 1, GFP_ATOMIC);
+		err = tcp_transmit_skb(sk, subskb, 1, GFP_ATOMIC, 0);
 
 		/* It has not been queued, we can free it now. */
 		kfree_skb(subskb);
@@ -888,11 +888,18 @@ void mptcp_synack_options(struct request_sock *req,
 }
 
 void mptcp_established_options(struct sock *sk, struct sk_buff *skb,
-			       struct tcp_out_options *opts, unsigned *size)
+			       struct tcp_out_options *opts, unsigned *size, int yamasawa_flag)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct mptcp_cb *mpcb = tp->mpcb;
 	struct tcp_skb_cb *tcb = skb ? TCP_SKB_CB(skb) : NULL;
+
+	if (yamasawa_flag == 1) {
+		opts->options |= OPTION_MPTCP;
+		opts->mptcp_options |= OPTION_PMP_ACK;
+		opts->pmp_ack_byte = 10;
+		*size += MPTCP_SUB_LEN_PMPACK_ALIGN;
+	}
 
 	/* In fallback mp_fail-mode, we have to repeat it until the fallback
 	 * has been done by the sender
@@ -1149,6 +1156,17 @@ void mptcp_options_write(__be32 *ptr, struct tcp_sock *tp,
 
 		ptr += MPTCP_SUB_LEN_PRIO_ALIGN >> 2;
 	}
+	if (OPTION_PMP_ACK & opts->mptcp_options) {
+		struct pmp_ack *pmpack = (struct pmp_ack *)ptr;
+
+		pmpack->kind = TCPOPT_MPTCP;
+		pmpack->len = MPTCP_SUB_LEN_PMPACK;
+		pmpack->sub = MPTCP_SUB_PMPACK;
+		pmpack->rsv = 0;
+		pmpack->recved_byte = opts->pmp_ack_byte;
+
+		ptr += MPTCP_SUB_LEN_PMPACK_ALIGN >> 2;
+	}
 }
 
 /* Sends the datafin */
@@ -1276,7 +1294,7 @@ static void mptcp_ack_retransmit_timer(struct sock *sk)
 	tcp_init_nondata_skb(skb, tp->snd_una, TCPHDR_ACK);
 
 	TCP_SKB_CB(skb)->when = tcp_time_stamp;
-	if (tcp_transmit_skb(sk, skb, 0, GFP_ATOMIC) > 0) {
+	if (tcp_transmit_skb(sk, skb, 0, GFP_ATOMIC, 0) > 0) {
 		/* Retransmission failed because of local congestion,
 		 * do not backoff.
 		 */
