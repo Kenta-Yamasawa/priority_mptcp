@@ -3306,7 +3306,7 @@ static void tcp_send_challenge_ack(struct sock *sk)
 	}
 	if (++challenge_count <= sysctl_tcp_challenge_ack_limit) {
 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPCHALLENGEACK);
-		tcp_send_ack(sk);
+		tcp_send_ack(sk, 0);
 	}
 }
 
@@ -3875,7 +3875,7 @@ static void tcp_fin(struct sock *sk)
 		 * happens, we must ack the received FIN and
 		 * enter the CLOSING state.
 		 */
-		tcp_send_ack(sk);
+		tcp_send_ack(sk, 0);
 		tcp_set_state(sk, TCP_CLOSING);
 		break;
 	case TCP_FIN_WAIT2:
@@ -3887,7 +3887,7 @@ static void tcp_fin(struct sock *sk)
 			break;
 		}
 		/* Received a FIN -- send ACK and enter TIME_WAIT. */
-		tcp_send_ack(sk);
+		tcp_send_ack(sk, 0);
 		tp->time_wait(sk, TCP_TIME_WAIT, 0);
 		break;
 	default:
@@ -3984,7 +3984,7 @@ static void tcp_send_dupack(struct sock *sk, const struct sk_buff *skb)
 		}
 	}
 
-	tcp_send_ack(sk);
+	tcp_send_ack(sk, 0);
 }
 
 /* These routines update the SACK block as out-of-order packets arrive or
@@ -4848,7 +4848,7 @@ static inline void tcp_data_snd_check(struct sock *sk)
 /*
  * Check if sending an ack is needed.
  */
-static void __tcp_ack_snd_check(struct sock *sk, int ofo_possible)
+static void __tcp_ack_snd_check(struct sock *sk, int ofo_possible, unsigned int data_len)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 
@@ -4863,20 +4863,20 @@ static void __tcp_ack_snd_check(struct sock *sk, int ofo_possible)
 	    /* We have out of order data. */
 	    (ofo_possible && skb_peek(&tp->out_of_order_queue))) {
 		/* Then ack it now */
-		tcp_send_ack(sk);
+		tcp_send_ack(sk, data_len);
 	} else {
 		/* Else, send delayed ack. */
-		tcp_send_delayed_ack(sk);
+		tcp_send_delayed_ack(sk, data_len);
 	}
 }
 
-static inline void tcp_ack_snd_check(struct sock *sk)
+static inline void tcp_ack_snd_check(struct sock *sk, unsigned int data_len)
 {
 	if (!inet_csk_ack_scheduled(sk)) {
 		/* We sent a data segment already. */
 		return;
 	}
-	__tcp_ack_snd_check(sk, 1);
+	__tcp_ack_snd_check(sk, 1, data_len);
 }
 
 /*
@@ -5178,6 +5178,8 @@ discard:
 void tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
 			 const struct tcphdr *th, unsigned int len)
 {
+	unsigned int data_len;
+
 	struct tcp_sock *tp = tcp_sk(sk);
 
 	if (unlikely(sk->sk_rx_dst == NULL))
@@ -5340,7 +5342,7 @@ void tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
 			}
 
 			if (!copied_early || tp->rcv_nxt != tp->rcv_wup)
-				__tcp_ack_snd_check(sk, 0);
+				__tcp_ack_snd_check(sk, 0, 0);
 no_ack:
 #ifdef CONFIG_NET_DMA
 			if (copied_early)
@@ -5377,11 +5379,13 @@ step5:
 	/* Process urgent data. */
 	tcp_urg(sk, skb, th);
 
+	data_len = skb->len - 52;
+
 	/* step 7: process the segment text */
 	tcp_data_queue(sk, skb);
 
 	tcp_data_snd_check(sk);
-	tcp_ack_snd_check(sk);
+	tcp_ack_snd_check(sk, data_len);
 	return;
 
 csum_error:
@@ -5646,7 +5650,7 @@ discard:
 			__kfree_skb(skb);
 			return 0;
 		} else {
-			tcp_send_ack(sk);
+			tcp_send_ack(sk, 0);
 		}
 		return -1;
 	}
@@ -5909,7 +5913,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
 		 * subtype.
 		 */
 		if (mptcp(tp) && !is_master_tp(tp))
-			tcp_send_ack(sk);
+			tcp_send_ack(sk, 0);
 		break;
 
 	case TCP_FIN_WAIT1: {
@@ -6034,7 +6038,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
 	/* tcp_data could move socket to TIME-WAIT */
 	if (sk->sk_state != TCP_CLOSE) {
 		tcp_data_snd_check(sk);
-		tcp_ack_snd_check(sk);
+		tcp_ack_snd_check(sk, 0);
 	}
 
 	if (!queued) {

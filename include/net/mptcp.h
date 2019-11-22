@@ -151,6 +151,8 @@ struct mptcp_options_received {
 	u32	mptcp_recv_nonce;
 	u64	mptcp_recv_tmac;
 	u8	mptcp_recv_mac[20];
+
+	unsigned long	ackedByte;
 };
 
 struct mptcp_tcp_sock {
@@ -339,12 +341,17 @@ struct mptcp_cb {
 	/* Timer for retransmitting SYN/ACK+MP_JOIN */
 	struct timer_list synack_timer;
 
-	/* original-top
-	 * Amount of data in bytes acked during 20ms on the priority-subflow
-         */
-	long ackedByte_20ms;
-	/* original-bottom */
+	
+	/* Amount of data in bytes acked during 500ms on the priority-subflow */
+	unsigned long 	ackedByte_500ms_now;
+	unsigned long 	ackedByte_500ms_prev;
+	unsigned char 	ackedByte_flag;
+	__u32 		ackedByte_jiffies;
 };
+
+#define PRIO_MPTCP_TEST_BEFORE		0
+#define PRIO_MPTCP_TEST_NOW		1
+#define PRIO_MPTCP_TEST_AFTER		2
 
 #define MPTCP_SUB_CAPABLE			0
 #define MPTCP_SUB_LEN_CAPABLE_SYN		12
@@ -786,7 +793,7 @@ void mptcp_synack_options(struct request_sock *req,
 			  struct tcp_out_options *opts,
 			  unsigned *remaining);
 void mptcp_established_options(struct sock *sk, struct sk_buff *skb,
-			       struct tcp_out_options *opts, unsigned *size, int yamasawa_flag);
+			       struct tcp_out_options *opts, unsigned *size, unsigned int yamasawa_flag);
 void mptcp_options_write(__be32 *ptr, struct tcp_sock *tp,
 			 struct tcp_out_options *opts,
 			 struct sk_buff *skb);

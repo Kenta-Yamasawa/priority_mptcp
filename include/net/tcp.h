@@ -379,7 +379,7 @@ int tcp_xmit_probe_skb(struct sock *sk, int urgent);
 void tcp_cwnd_validate(struct sock *sk);
 void tcp_event_new_data_sent(struct sock *sk, const struct sk_buff *skb);
 int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
-		     gfp_t gfp_mask, int yamasawa_flag);
+		     gfp_t gfp_mask, unsigned int yamasawa_flag);
 unsigned int tcp_mss_split_point(const struct sock *sk,
 				 const struct sk_buff *skb,
 				 unsigned int mss_now,
@@ -660,8 +660,8 @@ int tcp_send_synack(struct sock *);
 bool tcp_syn_flood_action(struct sock *sk, const struct sk_buff *skb,
 			  const char *proto);
 void tcp_push_one(struct sock *, unsigned int mss_now);
-void tcp_send_ack(struct sock *sk);
-void tcp_send_delayed_ack(struct sock *sk);
+void tcp_send_ack(struct sock *sk, unsigned int data_len);
+void tcp_send_delayed_ack(struct sock *sk, unsigned int data_len);
 void tcp_send_loss_probe(struct sock *sk);
 bool tcp_schedule_loss_probe(struct sock *sk);
 

@@ -641,7 +641,7 @@ static unsigned int tcp_synack_options(struct sock *sk,
  */
 static unsigned int tcp_established_options(struct sock *sk, struct sk_buff *skb,
 					struct tcp_out_options *opts,
-					struct tcp_md5sig_key **md5, int yamasawa_flag)
+					struct tcp_md5sig_key **md5, unsigned int yamasawa_flag)
 {
 	struct tcp_skb_cb *tcb = skb ? TCP_SKB_CB(skb) : NULL;
 	struct tcp_sock *tp = tcp_sk(sk);
@@ -885,7 +885,7 @@ void tcp_wfree(struct sk_buff *skb)
  * SKB, or a fresh unique copy made by the retransmit engine.
  */
 int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
-		        gfp_t gfp_mask, int yamasawa_flag)
+		        gfp_t gfp_mask, unsigned int yamasawa_flag)
 {
 	const struct inet_connection_sock *icsk = inet_csk(sk);
 	struct inet_sock *inet;
@@ -3102,7 +3102,7 @@ EXPORT_SYMBOL(tcp_connect);
  * to see if we should even be here.  See tcp_input.c:tcp_ack_snd_check()
  * for details.
  */
-void tcp_send_delayed_ack(struct sock *sk)
+void tcp_send_delayed_ack(struct sock *sk, unsigned int data_len)
 {
 	struct inet_connection_sock *icsk = inet_csk(sk);
 	int ato = icsk->icsk_ack.ato;
@@ -3142,7 +3142,7 @@ void tcp_send_delayed_ack(struct sock *sk)
 		 */
 		if (icsk->icsk_ack.blocked ||
 		    time_before_eq(icsk->icsk_ack.timeout, jiffies + (ato >> 2))) {
-			tcp_send_ack(sk);
+			tcp_send_ack(sk, data_len);
 			return;
 		}
 
@@ -3155,7 +3155,7 @@ void tcp_send_delayed_ack(struct sock *sk)
 }
 
 /* This routine sends an ack and also updates the window. */
-void tcp_send_ack(struct sock *sk)
+void tcp_send_ack(struct sock *sk, unsigned int data_len)
 {
 	struct sk_buff *buff;
 	struct tcp_out_options opts;
@@ -3189,7 +3189,7 @@ void tcp_send_ack(struct sock *sk)
 
 	/* Send it off, this clears delayed acks for us. */
 	TCP_SKB_CB(buff)->when = tcp_time_stamp;
-	tcp_transmit_skb(sk, buff, 0, sk_gfp_atomic(sk, GFP_ATOMIC), 1);
+	tcp_transmit_skb(sk, buff, 0, sk_gfp_atomic(sk, GFP_ATOMIC), data_len);
 }
 EXPORT_SYMBOL(tcp_send_ack);
 

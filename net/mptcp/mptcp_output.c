@@ -888,16 +888,16 @@ void mptcp_synack_options(struct request_sock *req,
 }
 
 void mptcp_established_options(struct sock *sk, struct sk_buff *skb,
-			       struct tcp_out_options *opts, unsigned *size, int yamasawa_flag)
+			       struct tcp_out_options *opts, unsigned *size, unsigned int yamasawa_flag)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct mptcp_cb *mpcb = tp->mpcb;
 	struct tcp_skb_cb *tcb = skb ? TCP_SKB_CB(skb) : NULL;
 
-	if (yamasawa_flag == 1) {
+	if (yamasawa_flag > 0) {
 		opts->options |= OPTION_MPTCP;
 		opts->mptcp_options |= OPTION_PMP_ACK;
-		opts->pmp_ack_byte = 10;
+		opts->pmp_ack_byte = (unsigned char)(yamasawa_flag / 8);
 		*size += MPTCP_SUB_LEN_PMPACK_ALIGN;
 	}
 
@@ -1257,7 +1257,7 @@ void mptcp_send_active_reset(struct sock *meta_sk, gfp_t priority)
 	if (!in_serving_softirq())
 		local_bh_enable();
 
-	tcp_send_ack(sk);
+	tcp_send_ack(sk, 0);
 	inet_csk_reset_keepalive_timer(sk, inet_csk(sk)->icsk_rto);
 
 	meta_tp->send_mp_fclose = 1;

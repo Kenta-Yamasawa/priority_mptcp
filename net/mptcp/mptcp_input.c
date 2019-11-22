@@ -1060,7 +1060,7 @@ restart:
 
 exit:
 	if (tcp_sk(sk)->close_it) {
-		tcp_send_ack(sk);
+		tcp_send_ack(sk, 0);
 		tcp_sk(sk)->time_wait(sk, TCP_TIME_WAIT, 0);
 	}
 
@@ -1330,12 +1330,12 @@ void mptcp_fin(struct sock *meta_sk)
 		 * happens, we must ack the received FIN and
 		 * enter the CLOSING state.
 		 */
-		tcp_send_ack(sk);
+		tcp_send_ack(sk, 0);
 		tcp_set_state(meta_sk, TCP_CLOSING);
 		break;
 	case TCP_FIN_WAIT2:
 		/* Received a FIN -- send ACK and enter TIME_WAIT. */
-		tcp_send_ack(sk);
+		tcp_send_ack(sk, 0);
 		meta_tp->time_wait(meta_sk, TCP_TIME_WAIT, 0);
 		break;
 	default:
@@ -1790,6 +1790,19 @@ void mptcp_parse_options(const uint8_t *ptr, int opsize,
 		mopt->mptcp_key = ((struct mp_fclose *)ptr)->key;
 
 		break;
+	case MPTCP_SUB_PMPACK:
+	{
+		struct pmp_ack *pmpack = (struct pmp_ack *)ptr;
+
+		if (opsize != MPTCP_SUB_LEN_PMPACK) {
+			mptcp_debug("%s: pmp_ack: bad option size %d\n",
+				    __func__, opsize);
+			break;
+		}
+
+		mopt->ackedByte = (unsigned long)pmpack->recved_byte;
+		break;
+	}
 	default:
 		mptcp_debug("%s: Received unkown subtype: %d\n",
 			    __func__, mp_opt->sub);
@@ -2019,14 +2032,44 @@ static inline void mptcp_path_array_check(struct sock *meta_sk)
 
 int mptcp_handle_options(struct sock *sk, const struct tcphdr *th, struct sk_buff *skb)
 {
+	struct sock *meta_sk = mptcp_meta_sk(sk);
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct mptcp_options_received *mopt = &tp->mptcp->rx_opt;
+	struct mptcp_cb *mpcb = tcp_sk(meta_sk)->mpcb;
 
 	if (tp->mpcb->infinite_mapping_rcv || tp->mpcb->infinite_mapping_snd)
 		return 0;
 
 	if (mptcp_mp_fail_rcvd(sk, th))
 		return 1;
+
+	spin_lock_bh(&mpcb->tw_lock);
+
+	if (mpcb->ackedByte_flag == PRIO_MPTCP_TEST_NOW || mpcb->ackedByte_flag == PRIO_MPTCP_TEST_AFTER) {
+		/* If time is passed than 500ms, reset now */
+		if (time_after_eq((unsigned long)tcp_time_stamp, (unsigned long)(mpcb->ackedByte_jiffies + HZ / 2))) {
+			pr_info("prio_reset_now!!!\n");
+			mpcb->ackedByte_500ms_prev = mpcb->ackedByte_500ms_now;
+			mpcb->ackedByte_500ms_now = 0;
+			mpcb->ackedByte_jiffies = tcp_time_stamp;
+			mpcb->ackedByte_flag = PRIO_MPTCP_TEST_AFTER;
+		}
+	}
+
+	/* If tp is the priority-path and tp has MPTCP_PMP_ACK OPTION, then... */
+	if ((long)(tp->inet_conn.icsk_inet.inet_saddr) == (16777482 + 256) && mopt->ackedByte) {
+		/* If this is the first call, init jiffies */
+		if (mpcb->ackedByte_flag == PRIO_MPTCP_TEST_BEFORE) {
+			mpcb->ackedByte_500ms_prev = 0;
+			mpcb->ackedByte_500ms_now = 0;
+			mpcb->ackedByte_jiffies = tcp_time_stamp;
+			mpcb->ackedByte_flag = PRIO_MPTCP_TEST_NOW;
+		}
+
+		mpcb->ackedByte_500ms_now += mopt->ackedByte;
+	}
+
+	spin_unlock_bh(&mpcb->tw_lock);
 
 	/* RFC 6824, Section 3.3:
 	 * If a checksum is not present when its use has been negotiated, the
@@ -2045,7 +2088,7 @@ int mptcp_handle_options(struct sock *sk, const struct tcphdr *th, struct sk_buf
 	 * ack.
 	 */
 	if (mopt->join_ack) {
-		tcp_send_delayed_ack(sk);
+		tcp_send_delayed_ack(sk, 0);
 		mopt->join_ack = 0;
 	}
 

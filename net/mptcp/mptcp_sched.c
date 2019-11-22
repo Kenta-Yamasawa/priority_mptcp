@@ -3,6 +3,8 @@
 #include <linux/module.h>
 #include <net/mptcp.h>
 
+#define PRIO_THRESHOLD 1000000000
+
 static DEFINE_SPINLOCK(mptcp_sched_list_lock);
 static LIST_HEAD(mptcp_sched_list);
 
@@ -138,9 +140,22 @@ static struct sock *get_available_subflow(struct sock *meta_sk,
 		}
 	}
 
-	/* original-top */
-	if (mpcb->ackedByte_20ms > 0)
+	// test
+	/*
+	if (mpcb->ackedByte_500ms_prev)
+		pr_info("%lu [bytes]\n", mpcb->ackedByte_500ms_prev);
+	*/
+
+	spin_lock_bh(&mpcb->tw_lock);
+
+	/* If you have checked, and the throughput is lower than PRIO_THRESHOLD, then you should use no-priority-scheduler. */
+	if (mpcb->ackedByte_flag == PRIO_MPTCP_TEST_AFTER && mpcb->ackedByte_500ms_prev < PRIO_THRESHOLD) {
+		pr_info("%lu \n", mpcb->ackedByte_500ms_prev);
+		spin_unlock_bh(&mpcb->tw_lock);
 		goto no_priority;
+	}
+
+	spin_unlock_bh(&mpcb->tw_lock);
 
 	mptcp_for_each_sk(mpcb, sk) {
 		struct tcp_sock *tp = tcp_sk(sk);
@@ -154,8 +169,6 @@ static struct sock *get_available_subflow(struct sock *meta_sk,
 	}
 
 no_priority:
-	/* original-bottom */
-
 	/* First, find the best subflow */
 	mptcp_for_each_sk(mpcb, sk) {
 		struct tcp_sock *tp = tcp_sk(sk);

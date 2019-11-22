@@ -1211,9 +1211,9 @@ static int mptcp_alloc_mpcb(struct sock *meta_sk, __u64 remote_key, u32 window)
 	meta_tp->mptcp->snt_isn = meta_tp->write_seq; /* Initial data-sequence-number */
 	meta_icsk->icsk_probes_out = 0;
 
-	/* original-top */
-	mpcb->ackedByte_20ms = 0;
-	/* original-bottom */
+	mpcb->ackedByte_500ms_now = 0;
+	mpcb->ackedByte_500ms_prev = 0;
+	mpcb->ackedByte_flag = 0;
 
 	/* Set mptcp-pointers */
 	master_tp->mpcb = mpcb;
