@@ -3,8 +3,6 @@
 #include <linux/module.h>
 #include <net/mptcp.h>
 
-#define PRIO_THRESHOLD 1000000000
-
 static DEFINE_SPINLOCK(mptcp_sched_list_lock);
 static LIST_HEAD(mptcp_sched_list);
 
@@ -140,20 +138,23 @@ static struct sock *get_available_subflow(struct sock *meta_sk,
 		}
 	}
 
-	// test
-	/*
-	if (mpcb->ackedByte_500ms_prev)
-		pr_info("%lu [bytes]\n", mpcb->ackedByte_500ms_prev);
-	*/
-
 	spin_lock_bh(&mpcb->tw_lock);
 
 	/* If you have checked, and the throughput is lower than PRIO_THRESHOLD, then you should use no-priority-scheduler. */
-	if (mpcb->ackedByte_flag == PRIO_MPTCP_TEST_AFTER && mpcb->ackedByte_500ms_prev < PRIO_THRESHOLD) {
-		pr_info("%lu \n", mpcb->ackedByte_500ms_prev);
-		spin_unlock_bh(&mpcb->tw_lock);
-		goto no_priority;
+	if (mpcb->ackedByte_flag == PRIO_MPTCP_TEST_AFTER) {
+		if (PRIO_MPTCP_DISPERTION_LEVEL_MIN < mpcb->dispertion_level) {
+			if (mpcb->dispertion_level == PRIO_MPTCP_DISPERTION_LEVEL_MAX
+			|| mpcb->sendedByte_back < PRIO_THRESHOLD * mpcb->dispertion_level / PRIO_MPTCP_DISPERTION_LEVEL_MAX) {
+				pr_info("dispertion!!!!!!!!!!!!!  %ld < %ld\n", (long)mpcb->sendedByte_back, (long)(PRIO_THRESHOLD * mpcb->dispertion_level / PRIO_MPTCP_DISPERTION_LEVEL_MAX));
+				if(skb)
+					mpcb->sendedByte_back += skb->len - 52;
+				spin_unlock_bh(&mpcb->tw_lock);
+				goto dispertion;
+			}
+		}
 	}
+
+	pr_info("VLC!!!!!!!!!!!!!!!!!!!!!  %ld >= %ld\n", (long)mpcb->sendedByte_back, (long)(PRIO_THRESHOLD * mpcb->dispertion_level / PRIO_MPTCP_DISPERTION_LEVEL_MAX));
 
 	spin_unlock_bh(&mpcb->tw_lock);
 
@@ -161,14 +162,17 @@ static struct sock *get_available_subflow(struct sock *meta_sk,
 		struct tcp_sock *tp = tcp_sk(sk);
 
 		if ((long)(tp->inet_conn.icsk_inet.inet_saddr) == (16777482 + 256)) {
-			if (mptcp_is_available(sk, skb, zero_wnd_test))
-				return sk;
-			else
+			if (!mptcp_is_available(sk, skb, zero_wnd_test))
 				return NULL;
+
+			if (mptcp_dont_reinject_skb(tp, skb))
+				return NULL;
+
+			return sk;
 		}
 	}
 
-no_priority:
+dispertion:
 	/* First, find the best subflow */
 	mptcp_for_each_sk(mpcb, sk) {
 		struct tcp_sock *tp = tcp_sk(sk);
@@ -221,9 +225,7 @@ no_priority:
 
 static struct sk_buff *mptcp_rcv_buf_optimization(struct sock *sk, int penal)
 {
-	/* original-top */
 	return NULL;
-	/* original-bottom */
 
 	struct sock *meta_sk;
 	struct tcp_sock *tp = tcp_sk(sk), *tp_it;
@@ -232,6 +234,13 @@ static struct sk_buff *mptcp_rcv_buf_optimization(struct sock *sk, int penal)
 
 	if (tp->mpcb->cnt_subflows == 1)
 		return NULL;
+
+	/*
+	if (tp->mpcb->ackedByte_back_now >= PRIO_THRESHOLD * tp->mpcb->dispertion_level / PRIO_MPTCP_DISPERTION_LEVEL_MAX) {
+		pr_info("helooooooooooooooooooooooo %d\n", tp->mpcb->dispertion_level);
+		return NULL;
+	}
+	*/
 
 	meta_sk = mptcp_meta_sk(sk);
 	skb_head = tcp_write_queue_head(meta_sk);

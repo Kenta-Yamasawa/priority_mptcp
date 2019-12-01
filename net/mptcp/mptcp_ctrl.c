@@ -1213,7 +1213,11 @@ static int mptcp_alloc_mpcb(struct sock *meta_sk, __u64 remote_key, u32 window)
 
 	mpcb->ackedByte_500ms_now = 0;
 	mpcb->ackedByte_500ms_prev = 0;
+	mpcb->ackedByte_back_now = 0;
+	mpcb->ackedByte_back_prev = 0;
+	mpcb->sendedByte_back = 0;
 	mpcb->ackedByte_flag = 0;
+	mpcb->dispertion_level = PRIO_MPTCP_DISPERTION_LEVEL_MIN;
 
 	/* Set mptcp-pointers */
 	master_tp->mpcb = mpcb;
@@ -1548,7 +1552,7 @@ void mptcp_cleanup_rbuf(struct sock *meta_sk, int copied)
 		      ((icsk->icsk_ack.pending & ICSK_ACK_PUSHED) &&
 		       !icsk->icsk_ack.pingpong)) &&
 		     !atomic_read(&meta_sk->sk_rmem_alloc))) {
-			tcp_send_ack(sk);
+			tcp_send_ack(sk, 0);
 			continue;
 		}
 
@@ -1564,7 +1568,7 @@ second_part:
 			 * "Lots" means "at least twice" here.
 			 */
 			if (new_window && new_window >= 2 * rcv_window_now)
-				tcp_send_ack(sk);
+				tcp_send_ack(sk, 0);
 		}
 	}
 }

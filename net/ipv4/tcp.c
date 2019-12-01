@@ -1490,7 +1490,7 @@ void tcp_cleanup_rbuf(struct sock *sk, int copied)
 		}
 	}
 	if (time_to_ack)
-		tcp_send_ack(sk);
+		tcp_send_ack(sk, 0);
 }
 
 static void tcp_prequeue_process(struct sock *sk)

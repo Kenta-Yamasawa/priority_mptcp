@@ -242,7 +242,7 @@ void tcp_delack_timer_handler(struct sock *sk)
 			icsk->icsk_ack.pingpong = 0;
 			icsk->icsk_ack.ato      = TCP_ATO_MIN;
 		}
-		tcp_send_ack(sk);
+		tcp_send_ack(sk, 0);
 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_DELAYEDACKS);
 	}
 
@@ -610,7 +610,7 @@ static void tcp_keepalive_timer (unsigned long data)
 		if (tcp_write_timeout(sk))
 			goto out;
 
-		tcp_send_ack(sk);
+		tcp_send_ack(sk, 0);
 		icsk->icsk_retransmits++;
 
 		icsk->icsk_rto = min(icsk->icsk_rto << 1, TCP_RTO_MAX);

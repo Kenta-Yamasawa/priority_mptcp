@@ -2047,27 +2047,56 @@ int mptcp_handle_options(struct sock *sk, const struct tcphdr *th, struct sk_buf
 
 	if (mpcb->ackedByte_flag == PRIO_MPTCP_TEST_NOW || mpcb->ackedByte_flag == PRIO_MPTCP_TEST_AFTER) {
 		/* If time is passed than 500ms, reset now */
-		if (time_after_eq((unsigned long)tcp_time_stamp, (unsigned long)(mpcb->ackedByte_jiffies + HZ / 2))) {
-			pr_info("prio_reset_now!!!\n");
+		if (time_after_eq((unsigned long)tcp_time_stamp, (unsigned long)(mpcb->ackedByte_jiffies + HZ / 5))) {
+			pr_info("VLC:%ld Wifi:%d\n", (long)mpcb->ackedByte_500ms_now, (long)mpcb->ackedByte_back_now);
+			pr_info("\nprio_reset_now!!!\n");
+			pr_info("%ld [s] passed...\n", (tcp_time_stamp - mpcb->ackedByte_jiffies) * 1000 / HZ);
 			mpcb->ackedByte_500ms_prev = mpcb->ackedByte_500ms_now;
 			mpcb->ackedByte_500ms_now = 0;
+			mpcb->ackedByte_back_prev = mpcb->ackedByte_back_now;
+			mpcb->ackedByte_back_now = 0;
+			mpcb->sendedByte_back = 0;
 			mpcb->ackedByte_jiffies = tcp_time_stamp;
 			mpcb->ackedByte_flag = PRIO_MPTCP_TEST_AFTER;
+
+			if (mpcb->ackedByte_500ms_prev + mpcb->ackedByte_back_prev < PRIO_THRESHOLD) {
+				//pr_info("low [VLC] %lu [BACK] %lu\n", mpcb->ackedByte_500ms_prev, mpcb->ackedByte_back_prev);
+				if (mpcb->dispertion_level < PRIO_MPTCP_DISPERTION_LEVEL_MAX)
+					mpcb->dispertion_level = PRIO_MPTCP_DISPERTION_LEVEL_MAX;
+			}
+			else {
+				//pr_info("high [VLC] %lu [BACK] %lu\n", mpcb->ackedByte_500ms_prev, mpcb->ackedByte_back_prev);
+				if (PRIO_MPTCP_DISPERTION_LEVEL_MIN < mpcb->dispertion_level)
+					mpcb->dispertion_level--;
+			}
+			pr_info("LEVEL: %d\n", mpcb->dispertion_level);
+			pr_info("THRESHOLD_NOW: %d\n", PRIO_THRESHOLD * mpcb->dispertion_level / 10);
 		}
 	}
 
 	/* If tp is the priority-path and tp has MPTCP_PMP_ACK OPTION, then... */
-	if ((long)(tp->inet_conn.icsk_inet.inet_saddr) == (16777482 + 256) && mopt->ackedByte) {
-		/* If this is the first call, init jiffies */
-		if (mpcb->ackedByte_flag == PRIO_MPTCP_TEST_BEFORE) {
-			mpcb->ackedByte_500ms_prev = 0;
-			mpcb->ackedByte_500ms_now = 0;
-			mpcb->ackedByte_jiffies = tcp_time_stamp;
-			mpcb->ackedByte_flag = PRIO_MPTCP_TEST_NOW;
-		}
+	//pr_info("saddr:%ld daddr:%ld\n", (long)tp->inet_conn.icsk_inet.inet_saddr, (long)tp->inet_conn.icsk_inet.inet_daddr);
+	if (mopt->ackedByte) {
+		pr_info("VLC:%ld Wifi:%ld SEQ:%ld ACK:%ld\n", (long)mpcb->ackedByte_500ms_now, (long)mpcb->ackedByte_back_now, (long)th->seq, (long)th->ack_seq);
+		if ((long)(tp->inet_conn.icsk_inet.inet_saddr) == (16777482 + 256)) {	
+			/* If this is the first call, init jiffies */
+			if (mpcb->ackedByte_flag == PRIO_MPTCP_TEST_BEFORE) {
+				mpcb->ackedByte_500ms_prev = 0;
+				mpcb->ackedByte_500ms_now = 0;
+				mpcb->ackedByte_back_prev = 0;
+				mpcb->ackedByte_back_now = 0;
+				mpcb->sendedByte_back = 0;
+				mpcb->ackedByte_jiffies = tcp_time_stamp;
+				mpcb->dispertion_level = PRIO_MPTCP_DISPERTION_LEVEL_MIN;
+				mpcb->ackedByte_flag = PRIO_MPTCP_TEST_NOW;
+			}
 
-		mpcb->ackedByte_500ms_now += mopt->ackedByte;
+			mpcb->ackedByte_500ms_now += mopt->ackedByte * 8;
+		}
+		else
+			mpcb->ackedByte_back_now += mopt->ackedByte * 8;
 	}
+	mopt->ackedByte = 0;
 
 	spin_unlock_bh(&mpcb->tw_lock);
 

@@ -897,7 +897,10 @@ void mptcp_established_options(struct sock *sk, struct sk_buff *skb,
 	if (yamasawa_flag > 0) {
 		opts->options |= OPTION_MPTCP;
 		opts->mptcp_options |= OPTION_PMP_ACK;
-		opts->pmp_ack_byte = (unsigned char)(yamasawa_flag / 8);
+		if (yamasawa_flag / 8 > 255)
+			opts->pmp_ack_byte = (unsigned char)255;
+		else
+			opts->pmp_ack_byte = (unsigned char)(yamasawa_flag / 8);
 		*size += MPTCP_SUB_LEN_PMPACK_ALIGN;
 	}
 
