@@ -190,8 +190,6 @@ static struct sock *get_available_subflow(struct sock *meta_sk,
 
 static struct sk_buff *mptcp_rcv_buf_optimization(struct sock *sk, int penal)
 {
-	return NULL;
-
 	struct sock *meta_sk;
 	struct tcp_sock *tp = tcp_sk(sk), *tp_it;
 	struct sk_buff *skb_head;
