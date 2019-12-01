@@ -138,21 +138,6 @@ static struct sock *get_available_subflow(struct sock *meta_sk,
 		}
 	}
 
-	mptcp_for_each_sk(mpcb, sk) {
-		struct tcp_sock *tp = tcp_sk(sk);
-
-		if ((long)(tp->inet_conn.icsk_inet.inet_saddr) == (16777482 + 256)) {
-			if (!mptcp_is_available(sk, skb, zero_wnd_test))
-				return NULL;
-
-			if (mptcp_dont_reinject_skb(tp, skb))
-				return NULL;
-
-			return sk;
-		}
-	}
-
-dispertion:
 	/* First, find the best subflow */
 	mptcp_for_each_sk(mpcb, sk) {
 		struct tcp_sock *tp = tcp_sk(sk);
