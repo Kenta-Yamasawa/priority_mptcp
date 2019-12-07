@@ -225,8 +225,6 @@ dispertion:
 
 static struct sk_buff *mptcp_rcv_buf_optimization(struct sock *sk, int penal)
 {
-	return NULL;
-
 	struct sock *meta_sk;
 	struct tcp_sock *tp = tcp_sk(sk), *tp_it;
 	struct sk_buff *skb_head;
@@ -235,12 +233,20 @@ static struct sk_buff *mptcp_rcv_buf_optimization(struct sock *sk, int penal)
 	if (tp->mpcb->cnt_subflows == 1)
 		return NULL;
 
-	/*
-	if (tp->mpcb->ackedByte_back_now >= PRIO_THRESHOLD * tp->mpcb->dispertion_level / PRIO_MPTCP_DISPERTION_LEVEL_MAX) {
-		pr_info("helooooooooooooooooooooooo %d\n", tp->mpcb->dispertion_level);
+	spin_lock_bh(&tp->mpcb->tw_lock);
+
+	if (tp->mpcb->dispertion_level < PRIO_MPTCP_DISPERTION_LEVEL_MAX)
+		return NULL;
+
+	if (tp->mpcb->sendedByte_back >= PRIO_THRESHOLD * tp->mpcb->dispertion_level / PRIO_MPTCP_DISPERTION_LEVEL_MAX
+	&&  tp->mpcb->ackedByte_back_now >= PRIO_THRESHOLD * tp->mpcb->dispertion_level / PRIO_MPTCP_DISPERTION_LEVEL_MAX) {
+		spin_unlock_bh(&tp->mpcb->tw_lock);
 		return NULL;
 	}
-	*/
+
+	pr_info("helooooooooooooooooooooooo %d\n", tp->mpcb->dispertion_level);
+
+	spin_unlock_bh(&tp->mpcb->tw_lock);
 
 	meta_sk = mptcp_meta_sk(sk);
 	skb_head = tcp_write_queue_head(meta_sk);
