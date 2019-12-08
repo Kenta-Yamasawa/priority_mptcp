@@ -2055,22 +2055,25 @@ int mptcp_handle_options(struct sock *sk, const struct tcphdr *th, struct sk_buf
 			mpcb->ackedByte_500ms_now = 0;
 			mpcb->ackedByte_back_prev = mpcb->ackedByte_back_now;
 			mpcb->ackedByte_back_now = 0;
-			mpcb->sendedByte_back = 0;
 			mpcb->ackedByte_jiffies = tcp_time_stamp;
 			mpcb->ackedByte_flag = PRIO_MPTCP_TEST_AFTER;
 
 			if (mpcb->ackedByte_500ms_prev + mpcb->ackedByte_back_prev < PRIO_THRESHOLD) {
 				//pr_info("low [VLC] %lu [BACK] %lu\n", mpcb->ackedByte_500ms_prev, mpcb->ackedByte_back_prev);
-				if (mpcb->dispertion_level < PRIO_MPTCP_DISPERTION_LEVEL_MAX)
-					mpcb->dispertion_level = PRIO_MPTCP_DISPERTION_LEVEL_MAX;
+				mpcb->dispertion_level = PRIO_MPTCP_DISPERTION_LEVEL_MAX;
 			}
 			else {
 				//pr_info("high [VLC] %lu [BACK] %lu\n", mpcb->ackedByte_500ms_prev, mpcb->ackedByte_back_prev);
-				if (PRIO_MPTCP_DISPERTION_LEVEL_MIN < mpcb->dispertion_level)
-					mpcb->dispertion_level--;
+				if (mpcb->dispertion_level == PRIO_MPTCP_DISPERTION_LEVEL_MAX)
+					mpcb->dispertion_level = mpcb->sendedByte_back / 2;
+				else if (PRIO_MPTCP_DISPERTION_LEVEL_MIN < mpcb->dispertion_level)
+					mpcb->dispertion_level /= 2;
+				else
+					mpcb->dispertion_level = PRIO_MPTCP_DISPERTION_LEVEL_MIN;
 			}
-			pr_info("LEVEL: %d\n", mpcb->dispertion_level);
-			pr_info("THRESHOLD_NOW: %d\n", PRIO_THRESHOLD * mpcb->dispertion_level / 10);
+			mpcb->sendedByte_back = 0;
+
+			pr_info("THRESHOLD_NOW: %lld\n", mpcb->dispertion_level);
 		}
 	}
 

@@ -350,29 +350,20 @@ struct mptcp_cb {
 	unsigned long	sendedByte_back;
 	unsigned char 	ackedByte_flag;
 	__u32 		ackedByte_jiffies;
-	unsigned int	dispertion_level;
+	long long	dispertion_level;
 };
 
 // Prio-MPTCP RESET TIMER
 extern struct timer_list prio_timer;
 
-#define PRIO_THRESHOLD 100000
+#define PRIO_THRESHOLD 100
 
 #define PRIO_MPTCP_TEST_BEFORE		0
 #define PRIO_MPTCP_TEST_NOW		1
 #define PRIO_MPTCP_TEST_AFTER		2
 
 #define PRIO_MPTCP_DISPERTION_LEVEL_MIN		0
-#define PRIO_MPTCP_DISPERTION_LEVEL_1		1
-#define PRIO_MPTCP_DISPERTION_LEVEL_2		2
-#define PRIO_MPTCP_DISPERTION_LEVEL_3		3
-#define PRIO_MPTCP_DISPERTION_LEVEL_4		4
-#define PRIO_MPTCP_DISPERTION_LEVEL_5		5
-#define PRIO_MPTCP_DISPERTION_LEVEL_6		6
-#define PRIO_MPTCP_DISPERTION_LEVEL_7		7
-#define PRIO_MPTCP_DISPERTION_LEVEL_8		8
-#define PRIO_MPTCP_DISPERTION_LEVEL_9		9
-#define PRIO_MPTCP_DISPERTION_LEVEL_MAX		10
+#define PRIO_MPTCP_DISPERTION_LEVEL_MAX		-1
 
 #define MPTCP_SUB_CAPABLE			0
 #define MPTCP_SUB_LEN_CAPABLE_SYN		12

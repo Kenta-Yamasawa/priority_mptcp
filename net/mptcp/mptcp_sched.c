@@ -142,19 +142,16 @@ static struct sock *get_available_subflow(struct sock *meta_sk,
 
 	/* If you have checked, and the throughput is lower than PRIO_THRESHOLD, then you should use no-priority-scheduler. */
 	if (mpcb->ackedByte_flag == PRIO_MPTCP_TEST_AFTER) {
-		if (PRIO_MPTCP_DISPERTION_LEVEL_MIN < mpcb->dispertion_level) {
-			if (mpcb->dispertion_level == PRIO_MPTCP_DISPERTION_LEVEL_MAX
-			|| mpcb->sendedByte_back < PRIO_THRESHOLD * mpcb->dispertion_level / PRIO_MPTCP_DISPERTION_LEVEL_MAX) {
-				pr_info("dispertion!!!!!!!!!!!!!  %ld < %ld\n", (long)mpcb->sendedByte_back, (long)(PRIO_THRESHOLD * mpcb->dispertion_level / PRIO_MPTCP_DISPERTION_LEVEL_MAX));
-				if(skb)
-					mpcb->sendedByte_back += skb->len - 52;
-				spin_unlock_bh(&mpcb->tw_lock);
-				goto dispertion;
-			}
+		if (mpcb->dispertion_level == PRIO_MPTCP_DISPERTION_LEVEL_MAX || mpcb->sendedByte_back < mpcb->dispertion_level) {
+			pr_info("dispertion!!!!!!!!!!!!!  %ld < %lld\n", (long)mpcb->sendedByte_back, mpcb->dispertion_level);
+			if(skb)
+				mpcb->sendedByte_back += skb->len - 52;
+			spin_unlock_bh(&mpcb->tw_lock);
+			goto dispertion;
 		}
 	}
 
-	pr_info("VLC!!!!!!!!!!!!!!!!!!!!!  %ld >= %ld\n", (long)mpcb->sendedByte_back, (long)(PRIO_THRESHOLD * mpcb->dispertion_level / PRIO_MPTCP_DISPERTION_LEVEL_MAX));
+	pr_info("VLC!!!!!!!!!!!!!!!!!!!!!  %ld >= %lld\n", (long)mpcb->sendedByte_back, mpcb->dispertion_level);
 
 	spin_unlock_bh(&mpcb->tw_lock);
 
@@ -235,14 +232,16 @@ static struct sk_buff *mptcp_rcv_buf_optimization(struct sock *sk, int penal)
 
 	spin_lock_bh(&tp->mpcb->tw_lock);
 
-	if (tp->mpcb->dispertion_level < PRIO_MPTCP_DISPERTION_LEVEL_MAX)
+	if (tp->mpcb->dispertion_level != PRIO_MPTCP_DISPERTION_LEVEL_MAX)
 		return NULL;
 
+	/*
 	if (tp->mpcb->sendedByte_back >= PRIO_THRESHOLD * tp->mpcb->dispertion_level / PRIO_MPTCP_DISPERTION_LEVEL_MAX
 	&&  tp->mpcb->ackedByte_back_now >= PRIO_THRESHOLD * tp->mpcb->dispertion_level / PRIO_MPTCP_DISPERTION_LEVEL_MAX) {
 		spin_unlock_bh(&tp->mpcb->tw_lock);
 		return NULL;
 	}
+	*/
 
 	pr_info("helooooooooooooooooooooooo %d\n", tp->mpcb->dispertion_level);
 
