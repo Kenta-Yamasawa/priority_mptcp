@@ -1910,6 +1910,10 @@ bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
 
 	sent_pkts = 0;
 
+	/* invalidate the subflow's TCP OPTIONs such as TCP_CORK and TCP_NAGLE(so here bit the TCP_NODELAY option). */
+	tp->nonagle &= ~TCP_NAGLE_CORK;
+	tp->nonagle |= TCP_NAGLE_OFF|TCP_NAGLE_PUSH;
+
 	/* pmtu not yet supported with MPTCP. Should be possible, by early
 	 * exiting the loop inside tcp_mtu_probe, making sure that only one
 	 * single DSS-mapping gets probed.

@@ -660,6 +660,10 @@ bool mptcp_write_xmit(struct sock *meta_sk, unsigned int mss_now, int nonagle,
 
 	sent_pkts = 0;
 
+	/* invalidate the meta_tp's TCP OPTIONs such as TCP_CORK and TCP_NAGLE(so here bit the TCP_NODELAY option). */
+	meta_tp->nonagle &= ~TCP_NAGLE_CORK;
+	meta_tp->nonagle |= TCP_NAGLE_OFF|TCP_NAGLE_PUSH;
+
 	while ((skb = mpcb->sched_ops->next_segment(meta_sk, &reinject, &subsk,
 						    &sublimit))) {
 		unsigned int limit;
