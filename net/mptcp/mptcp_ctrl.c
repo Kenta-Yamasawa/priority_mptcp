@@ -1218,6 +1218,7 @@ static int mptcp_alloc_mpcb(struct sock *meta_sk, __u64 remote_key, u32 window)
 	mpcb->sendedByte_back = 0;
 	mpcb->ackedByte_flag = 0;
 	mpcb->dispertion_level = PRIO_MPTCP_DISPERTION_LEVEL_MIN;
+	mpcb->total_shortage_byte = 0;
 
 	/* Set mptcp-pointers */
 	master_tp->mpcb = mpcb;

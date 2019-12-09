@@ -2058,7 +2058,17 @@ int mptcp_handle_options(struct sock *sk, const struct tcphdr *th, struct sk_buf
 			mpcb->ackedByte_jiffies = tcp_time_stamp;
 			mpcb->ackedByte_flag = PRIO_MPTCP_TEST_AFTER;
 
-			if (mpcb->ackedByte_500ms_prev + mpcb->ackedByte_back_prev < PRIO_THRESHOLD) {
+			mpcb->total_shortage_byte -= (mpcb->ackedByte_500ms_prev + mpcb->ackedByte_back_prev - (unsigned long)PRIO_THRESHOLD);
+			if (mpcb->total_shortage_byte < 0)
+				mpcb->total_shortage_byte = 0;
+			if (PRIO_MPTCP_TOTAL_SHORTAGE_MAX < mpcb->total_shortage_byte)
+				mpcb->total_shortage_byte = PRIO_MPTCP_TOTAL_SHORTAGE_MAX;
+
+			if (mpcb->dispertion_level == PRIO_MPTCP_DISPERTION_LEVEL_MAX && mpcb->total_shortage_byte > 0) {
+				pr_info("SHORTAGE_MODE: %lld\n", mpcb->total_shortage_byte);
+				mpcb->dispertion_level = PRIO_MPTCP_DISPERTION_LEVEL_MAX;
+			}
+			else if (mpcb->ackedByte_500ms_prev + mpcb->ackedByte_back_prev < PRIO_THRESHOLD) {
 				//pr_info("low [VLC] %lu [BACK] %lu\n", mpcb->ackedByte_500ms_prev, mpcb->ackedByte_back_prev);
 				mpcb->dispertion_level = PRIO_MPTCP_DISPERTION_LEVEL_MAX;
 			}
@@ -2092,6 +2102,7 @@ int mptcp_handle_options(struct sock *sk, const struct tcphdr *th, struct sk_buf
 				mpcb->ackedByte_jiffies = tcp_time_stamp;
 				mpcb->dispertion_level = PRIO_MPTCP_DISPERTION_LEVEL_MIN;
 				mpcb->ackedByte_flag = PRIO_MPTCP_TEST_NOW;
+				mpcb->total_shortage_byte = 0;
 			}
 
 			mpcb->ackedByte_500ms_now += mopt->ackedByte * 8;
