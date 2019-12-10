@@ -2045,52 +2045,9 @@ int mptcp_handle_options(struct sock *sk, const struct tcphdr *th, struct sk_buf
 
 	spin_lock_bh(&mpcb->tw_lock);
 
-	if (mpcb->ackedByte_flag == PRIO_MPTCP_TEST_NOW || mpcb->ackedByte_flag == PRIO_MPTCP_TEST_AFTER) {
-		/* If time is passed than 500ms, reset now */
-		if (time_after_eq((unsigned long)tcp_time_stamp, (unsigned long)(mpcb->ackedByte_jiffies + HZ / 5))) {
-			pr_info("VLC:%ld Wifi:%d\n", (long)mpcb->ackedByte_500ms_now, (long)mpcb->ackedByte_back_now);
-			pr_info("\nprio_reset_now!!!\n");
-			pr_info("%ld [s] passed...\n", (tcp_time_stamp - mpcb->ackedByte_jiffies) * 1000 / HZ);
-			mpcb->ackedByte_500ms_prev = mpcb->ackedByte_500ms_now;
-			mpcb->ackedByte_500ms_now = 0;
-			mpcb->ackedByte_back_prev = mpcb->ackedByte_back_now;
-			mpcb->ackedByte_back_now = 0;
-			mpcb->ackedByte_jiffies = tcp_time_stamp;
-			mpcb->ackedByte_flag = PRIO_MPTCP_TEST_AFTER;
-
-			mpcb->total_shortage_byte -= (mpcb->ackedByte_500ms_prev + mpcb->ackedByte_back_prev - (unsigned long)PRIO_THRESHOLD);
-			if (mpcb->total_shortage_byte < 0)
-				mpcb->total_shortage_byte = 0;
-			if (PRIO_MPTCP_TOTAL_SHORTAGE_MAX < mpcb->total_shortage_byte)
-				mpcb->total_shortage_byte = PRIO_MPTCP_TOTAL_SHORTAGE_MAX;
-
-			if (mpcb->dispertion_level == PRIO_MPTCP_DISPERTION_LEVEL_MAX && mpcb->total_shortage_byte > 0) {
-				pr_info("SHORTAGE_MODE: %lld\n", mpcb->total_shortage_byte);
-				mpcb->dispertion_level = PRIO_MPTCP_DISPERTION_LEVEL_MAX;
-			}
-			else if (mpcb->ackedByte_500ms_prev + mpcb->ackedByte_back_prev < PRIO_THRESHOLD) {
-				//pr_info("low [VLC] %lu [BACK] %lu\n", mpcb->ackedByte_500ms_prev, mpcb->ackedByte_back_prev);
-				mpcb->dispertion_level = PRIO_MPTCP_DISPERTION_LEVEL_MAX;
-			}
-			else {
-				//pr_info("high [VLC] %lu [BACK] %lu\n", mpcb->ackedByte_500ms_prev, mpcb->ackedByte_back_prev);
-				if (mpcb->dispertion_level == PRIO_MPTCP_DISPERTION_LEVEL_MAX)
-					mpcb->dispertion_level = mpcb->sendedByte_back / 2;
-				else if (PRIO_MPTCP_DISPERTION_LEVEL_MIN < mpcb->dispertion_level)
-					mpcb->dispertion_level /= 2;
-				else
-					mpcb->dispertion_level = PRIO_MPTCP_DISPERTION_LEVEL_MIN;
-			}
-			mpcb->sendedByte_back = 0;
-
-			pr_info("THRESHOLD_NOW: %lld\n", mpcb->dispertion_level);
-		}
-	}
-
 	/* If tp is the priority-path and tp has MPTCP_PMP_ACK OPTION, then... */
-	//pr_info("saddr:%ld daddr:%ld\n", (long)tp->inet_conn.icsk_inet.inet_saddr, (long)tp->inet_conn.icsk_inet.inet_daddr);
 	if (mopt->ackedByte) {
-		pr_info("VLC:%ld Wifi:%ld SEQ:%ld ACK:%ld\n", (long)mpcb->ackedByte_500ms_now, (long)mpcb->ackedByte_back_now, (long)th->seq, (long)th->ack_seq);
+		// pr_info("VLC:%ld Wifi:%ld SEQ:%ld ACK:%ld\n", (long)mpcb->ackedByte_500ms_now, (long)mpcb->ackedByte_back_now, (long)th->seq, (long)th->ack_seq);
 		if ((long)(tp->inet_conn.icsk_inet.inet_saddr) == (16777482 + 256)) {	
 			/* If this is the first call, init jiffies */
 			if (mpcb->ackedByte_flag == PRIO_MPTCP_TEST_BEFORE) {
@@ -2099,10 +2056,12 @@ int mptcp_handle_options(struct sock *sk, const struct tcphdr *th, struct sk_buf
 				mpcb->ackedByte_back_prev = 0;
 				mpcb->ackedByte_back_now = 0;
 				mpcb->sendedByte_back = 0;
-				mpcb->ackedByte_jiffies = tcp_time_stamp;
+				mpcb->ackedByte_jiffies = 0;
 				mpcb->dispertion_level = PRIO_MPTCP_DISPERTION_LEVEL_MIN;
 				mpcb->ackedByte_flag = PRIO_MPTCP_TEST_NOW;
 				mpcb->total_shortage_byte = 0;
+
+				mptcp_reset_prio_interval_timer(meta_sk, HZ / (1000 / PRIO_MPTCP_INTERVAL_TIMEOUT));
 			}
 
 			mpcb->ackedByte_500ms_now += mopt->ackedByte * 8;

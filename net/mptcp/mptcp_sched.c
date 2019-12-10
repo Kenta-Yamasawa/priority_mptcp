@@ -140,10 +140,10 @@ static struct sock *get_available_subflow(struct sock *meta_sk,
 
 	spin_lock_bh(&mpcb->tw_lock);
 
-	/* If you have checked, and the throughput is lower than PRIO_THRESHOLD, then you should use no-priority-scheduler. */
+	/* If you have TESTed, and the throughput is lower than PRIO_THRESHOLD, then you should use no-priority-scheduler. */
 	if (mpcb->ackedByte_flag == PRIO_MPTCP_TEST_AFTER) {
 		if (mpcb->dispertion_level == PRIO_MPTCP_DISPERTION_LEVEL_MAX || mpcb->sendedByte_back < mpcb->dispertion_level) {
-			pr_info("dispertion!!!!!!!!!!!!!  %ld < %lld\n", (long)mpcb->sendedByte_back, mpcb->dispertion_level);
+			// pr_info("dispertion!!!!!!!!!!!!!  %ld < %lld\n", (long)mpcb->sendedByte_back, mpcb->dispertion_level);
 			if(skb)
 				mpcb->sendedByte_back += skb->len - 52;
 			spin_unlock_bh(&mpcb->tw_lock);
@@ -151,7 +151,7 @@ static struct sock *get_available_subflow(struct sock *meta_sk,
 		}
 	}
 
-	pr_info("VLC!!!!!!!!!!!!!!!!!!!!!  %ld >= %lld\n", (long)mpcb->sendedByte_back, mpcb->dispertion_level);
+	// pr_info("VLC!!!!!!!!!!!!!!!!!!!!!  %ld >= %lld\n", (long)mpcb->sendedByte_back, mpcb->dispertion_level);
 
 	spin_unlock_bh(&mpcb->tw_lock);
 
@@ -242,8 +242,6 @@ static struct sk_buff *mptcp_rcv_buf_optimization(struct sock *sk, int penal)
 		return NULL;
 	}
 	*/
-
-	pr_info("helooooooooooooooooooooooo %d\n", tp->mpcb->dispertion_level);
 
 	spin_unlock_bh(&tp->mpcb->tw_lock);
 

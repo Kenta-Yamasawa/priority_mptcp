@@ -1098,6 +1098,65 @@ out:
 	sock_put(meta_sk);
 }
 
+// If time is passed more than PRIO_MPTCP_INTERVAL_TIMEOUT [ms], reset now
+static void mptcp_prio_interval_timer_handler(unsigned long data)
+{
+	struct sock *meta_sk = (struct sock *) data;
+	struct mptcp_cb *mpcb = tcp_sk(meta_sk)->mpcb;
+
+	/* Only process if mptcp_cb is not in use. */
+	spin_lock_bh(&mpcb->tw_lock);
+
+	/* If time is passed more than PRIO_MPTCP_INTERVAL_TIMEOUT [ms], reset now */
+	if (mpcb->ackedByte_flag == PRIO_MPTCP_TEST_NOW || mpcb->ackedByte_flag == PRIO_MPTCP_TEST_AFTER) {
+		/* If time is passed more than PRIO_MPTCP_INTERVAL_TIMEOUT [ms], reset now */
+		pr_info("VLC:%ld Wifi:%ld\n", (long)mpcb->ackedByte_500ms_now, (long)mpcb->ackedByte_back_now);
+		pr_info("\nprio_reset_now!!!\n");
+		pr_info("%ld [ms] passed...\n", (long)(tcp_time_stamp - mpcb->ackedByte_jiffies) * 1000 / HZ);
+		mpcb->ackedByte_500ms_prev = mpcb->ackedByte_500ms_now;
+		mpcb->ackedByte_500ms_now = 0;
+		mpcb->ackedByte_back_prev = mpcb->ackedByte_back_now;
+		mpcb->ackedByte_back_now = 0;
+		mpcb->ackedByte_jiffies = tcp_time_stamp;
+		mpcb->ackedByte_flag = PRIO_MPTCP_TEST_AFTER;
+
+		mpcb->total_shortage_byte -= (mpcb->ackedByte_500ms_prev + mpcb->ackedByte_back_prev - (unsigned long)PRIO_THRESHOLD);
+		if (mpcb->total_shortage_byte < 0)
+			mpcb->total_shortage_byte = 0;
+		if (PRIO_MPTCP_TOTAL_SHORTAGE_MAX < mpcb->total_shortage_byte)
+			mpcb->total_shortage_byte = PRIO_MPTCP_TOTAL_SHORTAGE_MAX;
+
+		if (mpcb->dispertion_level == PRIO_MPTCP_DISPERTION_LEVEL_MAX && mpcb->total_shortage_byte > 0) {
+			pr_info("SHORTAGE_MODE: %lld\n", mpcb->total_shortage_byte);
+			mpcb->dispertion_level = PRIO_MPTCP_DISPERTION_LEVEL_MAX;
+		}
+		else if (mpcb->ackedByte_500ms_prev + mpcb->ackedByte_back_prev < PRIO_THRESHOLD) {
+			//pr_info("low [VLC] %lu [BACK] %lu\n", mpcb->ackedByte_500ms_prev, mpcb->ackedByte_back_prev);
+			mpcb->dispertion_level = PRIO_MPTCP_DISPERTION_LEVEL_MAX;
+		}
+		else {
+			//pr_info("high [VLC] %lu [BACK] %lu\n", mpcb->ackedByte_500ms_prev, mpcb->ackedByte_back_prev);
+			if (mpcb->dispertion_level == PRIO_MPTCP_DISPERTION_LEVEL_MAX)
+				mpcb->dispertion_level = mpcb->sendedByte_back / 2;
+			else if (PRIO_MPTCP_DISPERTION_LEVEL_MIN < mpcb->dispertion_level)
+				mpcb->dispertion_level /= 2;
+			else
+				mpcb->dispertion_level = PRIO_MPTCP_DISPERTION_LEVEL_MIN;
+		}
+		mpcb->sendedByte_back = 0;
+
+		pr_info("THRESHOLD_NOW: %lld\n", mpcb->dispertion_level);
+	}
+
+	spin_unlock_bh(&mpcb->tw_lock);
+
+	/* Only process if socket is not in use. */
+	bh_lock_sock(meta_sk);
+
+	mptcp_reset_prio_interval_timer(meta_sk, HZ / (1000 / PRIO_MPTCP_INTERVAL_TIMEOUT));
+
+	bh_unlock_sock(meta_sk);
+}
 
 static int mptcp_alloc_mpcb(struct sock *meta_sk, __u64 remote_key, u32 window)
 {
@@ -1217,6 +1276,7 @@ static int mptcp_alloc_mpcb(struct sock *meta_sk, __u64 remote_key, u32 window)
 	mpcb->ackedByte_back_prev = 0;
 	mpcb->sendedByte_back = 0;
 	mpcb->ackedByte_flag = 0;
+	mpcb->ackedByte_jiffies = 0;
 	mpcb->dispertion_level = PRIO_MPTCP_DISPERTION_LEVEL_MIN;
 	mpcb->total_shortage_byte = 0;
 
@@ -1319,6 +1379,9 @@ static int mptcp_alloc_mpcb(struct sock *meta_sk, __u64 remote_key, u32 window)
 	mptcp_init_scheduler(mpcb);
 
 	setup_timer(&mpcb->synack_timer, mptcp_synack_timer_handler,
+		    (unsigned long)meta_sk);
+
+	setup_timer(&mpcb->prio_mptcp_interval_timer, mptcp_prio_interval_timer_handler,
 		    (unsigned long)meta_sk);
 
 	mptcp_debug("%s: created mpcb with token %#x\n",

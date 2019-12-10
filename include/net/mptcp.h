@@ -349,24 +349,35 @@ struct mptcp_cb {
 	unsigned long	ackedByte_back_prev;
 	unsigned long	sendedByte_back;
 	unsigned char 	ackedByte_flag;
-	__u32 		ackedByte_jiffies;
 	long long	dispertion_level;
 	long long	total_shortage_byte;
+	__be32		ackedByte_jiffies;
+
+	// Prio-MPTCP RESET TIMER
+	struct timer_list prio_mptcp_interval_timer;
 };
 
-// Prio-MPTCP RESET TIMER
-extern struct timer_list prio_timer;
+/*
+ * MACROs defined by Yamasawa (in Tsukuba University)
+ */
 
-#define PRIO_THRESHOLD 100000
+// MACROs for user configuration
+#define PRIO_THRESHOLD 			10000
+#define PRIO_MPTCP_INTERVAL_TIMEOUT	200
 
-#define PRIO_MPTCP_TEST_BEFORE		0
-#define PRIO_MPTCP_TEST_NOW		1
-#define PRIO_MPTCP_TEST_AFTER		2
+// MACROs for not user configuration but kernel-processes, please don't modify these macro's parameters...
+#define PRIO_MPTCP_TEST_BEFORE			0
+#define PRIO_MPTCP_TEST_NOW			1
+#define PRIO_MPTCP_TEST_AFTER			2
 
 #define PRIO_MPTCP_DISPERTION_LEVEL_MIN		0
 #define PRIO_MPTCP_DISPERTION_LEVEL_MAX		-1
 
 #define PRIO_MPTCP_TOTAL_SHORTAGE_MAX		10000000000
+
+/*
+ * end (MACROs defined by Yamasawa)
+ */
 
 #define MPTCP_SUB_CAPABLE			0
 #define MPTCP_SUB_LEN_CAPABLE_SYN		12
@@ -925,6 +936,13 @@ static inline void mptcp_reset_synack_timer(struct sock *meta_sk,
 					    unsigned long len)
 {
 	sk_reset_timer(meta_sk, &tcp_sk(meta_sk)->mpcb->synack_timer,
+		       jiffies + len);
+}
+
+static inline void mptcp_reset_prio_interval_timer(struct sock *meta_sk,
+						   unsigned long len)
+{
+	sk_reset_timer(meta_sk, &tcp_sk(meta_sk)->mpcb->prio_mptcp_interval_timer,
 		       jiffies + len);
 }
 
