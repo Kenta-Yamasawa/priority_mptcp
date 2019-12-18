@@ -2046,7 +2046,7 @@ int mptcp_handle_options(struct sock *sk, const struct tcphdr *th, struct sk_buf
 	spin_lock_bh(&mpcb->tw_lock);
 
 	/* If tp is the priority-path and tp has MPTCP_PMP_ACK OPTION, then... */
-	if (mopt->ackedByte) {
+	if (mopt->ackedByte && TCP_SKB_CB(skb)->seq == tp->rcv_nxt) {
 		// pr_info("VLC:%ld Wifi:%ld SEQ:%ld ACK:%ld\n", (long)mpcb->ackedByte_500ms_now, (long)mpcb->ackedByte_back_now, (long)th->seq, (long)th->ack_seq);
 		if ((long)(tp->inet_conn.icsk_inet.inet_saddr) == (16777482 + 256)) {	
 			/* If this is the first call, init jiffies */

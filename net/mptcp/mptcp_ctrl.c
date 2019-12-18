@@ -1131,11 +1131,11 @@ static void mptcp_prio_interval_timer_handler(unsigned long data)
 			mpcb->dispertion_level = PRIO_MPTCP_DISPERTION_LEVEL_MAX;
 		}
 		else if (mpcb->ackedByte_500ms_prev + mpcb->ackedByte_back_prev < PRIO_THRESHOLD) {
-			//pr_info("low [VLC] %lu [BACK] %lu\n", mpcb->ackedByte_500ms_prev, mpcb->ackedByte_back_prev);
+			pr_info("low [VLC] %lu [BACK] %lu\n", mpcb->ackedByte_500ms_prev, mpcb->ackedByte_back_prev);
 			mpcb->dispertion_level = PRIO_MPTCP_DISPERTION_LEVEL_MAX;
 		}
 		else {
-			//pr_info("high [VLC] %lu [BACK] %lu\n", mpcb->ackedByte_500ms_prev, mpcb->ackedByte_back_prev);
+			pr_info("high [VLC] %lu [BACK] %lu\n", mpcb->ackedByte_500ms_prev, mpcb->ackedByte_back_prev);
 			if (mpcb->dispertion_level == PRIO_MPTCP_DISPERTION_LEVEL_MAX)
 				mpcb->dispertion_level = mpcb->sendedByte_back / 2;
 			else if (PRIO_MPTCP_DISPERTION_LEVEL_MIN < mpcb->dispertion_level)
