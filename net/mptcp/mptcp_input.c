@@ -2044,10 +2044,8 @@ int mptcp_handle_options(struct sock *sk, const struct tcphdr *th, struct sk_buf
 		return 1;
 
 	spin_lock_bh(&mpcb->tw_lock);
-
 	/* If tp is the priority-path and tp has MPTCP_PMP_ACK OPTION, then... */
-	if (mopt->ackedByte && TCP_SKB_CB(skb)->seq == tp->rcv_nxt) {
-		// pr_info("VLC:%ld Wifi:%ld SEQ:%ld ACK:%ld\n", (long)mpcb->ackedByte_500ms_now, (long)mpcb->ackedByte_back_now, (long)th->seq, (long)th->ack_seq);
+	if (mopt->ackedByte) {
 		if ((long)(tp->inet_conn.icsk_inet.inet_saddr) == (16777482 + 256)) {	
 			/* If this is the first call, init jiffies */
 			if (mpcb->ackedByte_flag == PRIO_MPTCP_TEST_BEFORE) {
@@ -2057,8 +2055,10 @@ int mptcp_handle_options(struct sock *sk, const struct tcphdr *th, struct sk_buf
 				mpcb->ackedByte_back_now = 0;
 				mpcb->sendedByte_back = 0;
 				mpcb->ackedByte_jiffies = 0;
+				mpcb->timeout_jiffies = 0;
 				mpcb->dispertion_level = PRIO_MPTCP_DISPERTION_LEVEL_MIN;
 				mpcb->ackedByte_flag = PRIO_MPTCP_TEST_NOW;
+				mpcb->timeout_flag = PRIO_MPTCP_PRIORITY_PATH_WORK;
 				mpcb->total_shortage_byte = 0;
 
 				mptcp_reset_prio_interval_timer(meta_sk, HZ / (1000 / PRIO_MPTCP_INTERVAL_TIMEOUT));
@@ -2070,7 +2070,6 @@ int mptcp_handle_options(struct sock *sk, const struct tcphdr *th, struct sk_buf
 			mpcb->ackedByte_back_now += mopt->ackedByte * 8;
 	}
 	mopt->ackedByte = 0;
-
 	spin_unlock_bh(&mpcb->tw_lock);
 
 	/* RFC 6824, Section 3.3:

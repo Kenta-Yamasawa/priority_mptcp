@@ -138,21 +138,38 @@ static struct sock *get_available_subflow(struct sock *meta_sk,
 		}
 	}
 
-	spin_lock_bh(&mpcb->tw_lock);
+	if (mpcb->timeout_flag == PRIO_MPTCP_SET_NO_PRIORITY_TIMEOUT) {
+		mpcb->timeout_jiffies = tcp_time_stamp + HZ / (1000 / PRIO_MPTCP_INTERVAL_TIMEOUT);
+		mpcb->timeout_flag = PRIO_MPTCP_NO_PRIORITY_PATH_ONLY;
+	}
 
+	if (mpcb->timeout_flag == PRIO_MPTCP_NO_PRIORITY_PATH_ONLY
+	 && mpcb->ackedByte_flag == PRIO_MPTCP_TEST_BEFORE
+	 && time_after_eq(tcp_time_stamp, mpcb->timeout_jiffies)) {
+		mpcb->ackedByte_500ms_prev = 0;
+		mpcb->ackedByte_500ms_now = 0;
+		mpcb->ackedByte_back_prev = 0;
+		mpcb->ackedByte_back_now = 0;
+		mpcb->sendedByte_back = 0;
+		mpcb->ackedByte_jiffies = 0;
+		mpcb->dispertion_level = PRIO_MPTCP_DISPERTION_LEVEL_MIN;
+		mpcb->ackedByte_flag = PRIO_MPTCP_TEST_AFTER;
+		mpcb->timeout_flag = PRIO_MPTCP_PRIORITY_PATH_WORK;
+		mpcb->total_shortage_byte = PRIO_THRESHOLD * PRIO_MPTCP_INTERVAL_TIMEOUT;
+
+		mptcp_reset_prio_interval_timer(meta_sk, HZ / (1000 / PRIO_MPTCP_INTERVAL_TIMEOUT));
+	}
+
+	spin_lock_bh(&mpcb->tw_lock);
 	/* If you have TESTed, and the throughput is lower than PRIO_THRESHOLD, then you should use no-priority-scheduler. */
 	if (mpcb->ackedByte_flag == PRIO_MPTCP_TEST_AFTER) {
 		if (mpcb->dispertion_level == PRIO_MPTCP_DISPERTION_LEVEL_MAX || mpcb->sendedByte_back < mpcb->dispertion_level) {
-			// pr_info("dispertion!!!!!!!!!!!!!  %ld < %lld\n", (long)mpcb->sendedByte_back, mpcb->dispertion_level);
 			if(skb)
 				mpcb->sendedByte_back += skb->len - 52;
 			spin_unlock_bh(&mpcb->tw_lock);
 			goto dispertion;
 		}
 	}
-
-	// pr_info("VLC!!!!!!!!!!!!!!!!!!!!!  %ld >= %lld\n", (long)mpcb->sendedByte_back, mpcb->dispertion_level);
-
 	spin_unlock_bh(&mpcb->tw_lock);
 
 	mptcp_for_each_sk(mpcb, sk) {

@@ -1276,7 +1276,9 @@ static int mptcp_alloc_mpcb(struct sock *meta_sk, __u64 remote_key, u32 window)
 	mpcb->ackedByte_back_prev = 0;
 	mpcb->sendedByte_back = 0;
 	mpcb->ackedByte_flag = 0;
+	mpcb->timeout_flag = PRIO_MPTCP_SET_NO_PRIORITY_TIMEOUT;
 	mpcb->ackedByte_jiffies = 0;
+	mpcb->timeout_jiffies = 0;
 	mpcb->dispertion_level = PRIO_MPTCP_DISPERTION_LEVEL_MIN;
 	mpcb->total_shortage_byte = 0;
 
