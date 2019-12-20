@@ -114,7 +114,7 @@ struct tcp_out_options {
 
 	u16	remove_addrs;	/* list of address id */
 	u8	addr_id;	/* address id (mp_join or add_address) */
-	u8	pmp_ack_byte;	/* bytes acked on the priority path */
+	u32	pmp_ack_byte;	/* bytes acked on the priority path */
 #endif /* CONFIG_MPTCP */
 };
 

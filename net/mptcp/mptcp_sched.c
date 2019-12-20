@@ -155,7 +155,7 @@ static struct sock *get_available_subflow(struct sock *meta_sk,
 		mpcb->dispertion_level = PRIO_MPTCP_DISPERTION_LEVEL_MIN;
 		mpcb->ackedByte_flag = PRIO_MPTCP_TEST_AFTER;
 		mpcb->timeout_flag = PRIO_MPTCP_PRIORITY_PATH_WORK;
-		mpcb->total_shortage_byte = PRIO_THRESHOLD * PRIO_MPTCP_INTERVAL_TIMEOUT;
+		mpcb->total_shortage_byte = PRIO_THRESHOLD;
 
 		mptcp_reset_prio_interval_timer(meta_sk, HZ / (1000 / PRIO_MPTCP_INTERVAL_TIMEOUT));
 	}

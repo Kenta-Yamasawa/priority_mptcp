@@ -1800,7 +1800,8 @@ void mptcp_parse_options(const uint8_t *ptr, int opsize,
 			break;
 		}
 
-		mopt->ackedByte = (unsigned long)pmpack->recved_byte;
+		mopt->ackedByte = (unsigned long)ntohl(pmpack->recved_byte);
+		pr_info("%ld\n", mopt->ackedByte);
 		break;
 	}
 	default:
@@ -2064,10 +2065,10 @@ int mptcp_handle_options(struct sock *sk, const struct tcphdr *th, struct sk_buf
 				mptcp_reset_prio_interval_timer(meta_sk, HZ / (1000 / PRIO_MPTCP_INTERVAL_TIMEOUT));
 			}
 
-			mpcb->ackedByte_500ms_now += mopt->ackedByte * 8;
+			mpcb->ackedByte_500ms_now += mopt->ackedByte;
 		}
 		else
-			mpcb->ackedByte_back_now += mopt->ackedByte * 8;
+			mpcb->ackedByte_back_now += mopt->ackedByte;
 	}
 	mopt->ackedByte = 0;
 	spin_unlock_bh(&mpcb->tw_lock);

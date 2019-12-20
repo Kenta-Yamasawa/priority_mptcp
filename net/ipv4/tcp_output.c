@@ -3175,7 +3175,7 @@ void tcp_send_ack(struct sock *sk, unsigned int data_len)
 	 * sock.
 	 */
 #ifdef CONFIG_MPTCP
-	buff = alloc_skb(MAX_TCP_HEADER + 4, sk_gfp_atomic(sk, GFP_ATOMIC));
+	buff = alloc_skb(MAX_TCP_HEADER + MPTCP_SUB_LEN_PMPACK, sk_gfp_atomic(sk, GFP_ATOMIC));
 #else
 	buff = alloc_skb(MAX_TCP_HEADER, sk_gfp_atomic(sk, GFP_ATOMIC));
 #endif /* CONFIG_MPTCP */

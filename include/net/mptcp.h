@@ -364,7 +364,7 @@ struct mptcp_cb {
  */
 
 // MACROs for user configuration
-#define PRIO_THRESHOLD 			10000
+#define PRIO_THRESHOLD 			100000
 #define PRIO_MPTCP_INTERVAL_TIMEOUT	200
 
 // MACROs for not user configuration but kernel-processes, please don't modify these macro's parameters...
@@ -456,8 +456,8 @@ struct mptcp_cb {
 #define MPTCP_SUB_LEN_FCLOSE_ALIGN	12
 
 #define MPTCP_SUB_PMPACK	8
-#define MPTCP_SUB_LEN_PMPACK	4
-#define MPTCP_SUB_LEN_PMPACK_ALIGN	4
+#define MPTCP_SUB_LEN_PMPACK	8
+#define MPTCP_SUB_LEN_PMPACK_ALIGN	8
 
 #define OPTION_MPTCP		(1 << 5)
 
@@ -708,15 +708,16 @@ struct pmp_ack {
 	__u8	kind;
 	__u8	len;
 #if defined(__LITTLE_ENDIAN_BITFIELD)
-	__u8	rsv:4,
+	__u8	rsv1:4,
 		sub:4;
 #elif defined(__BIG_ENDIAN_BITFIELD)
 	__u8	sub:4,
-		rsv:4;
+		rsv1:4;
 #else
 #error	"Adjust your <asm/byteorder.h> defines"
 #endif
-	__u8	recved_byte;
+	__u8	rsv2;
+	__u32	recved_byte;
 } __attribute__((__packed__));
 
 static inline int mptcp_sub_len_dss(struct mp_dss *m, int csum)
